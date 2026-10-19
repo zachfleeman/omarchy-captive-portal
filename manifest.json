@@ -2,14 +2,26 @@
   "schemaVersion": 1,
   "id": "io.github.zachfleeman.captive",
   "name": "Captive Portal",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "zachfleeman",
   "license": "MIT",
-  "description": "Detects captive portals on public wifi networks and opens the sign-in page automatically.",
+  "description": "Detects captive portals, opens sign-in pages, and adds sign-in actions to the Wi-Fi dropdown.",
   "kinds": [
-    "service"
+    "service",
+    "bar-widget"
   ],
   "entryPoints": {
-    "service": "Service.qml"
+    "service": "Service.qml",
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Network + Captive Portal",
+    "description": "Wi-Fi controls with captive portal sign-in status and URL copy action",
+    "category": "Network",
+    "defaultSection": "right",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.network"
   }
 }

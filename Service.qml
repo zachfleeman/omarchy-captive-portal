@@ -12,6 +12,7 @@ Item {
   property bool autoOpenBrowser: true
   property bool notify: true
   property string probeUrl: "http://captive.apple.com/hotspot-detect.html"
+  property string fallbackProbeUrl: "http://ping.archlinux.org/nm-check.txt"
   property int settleMs: 2500
   property int recheckMs: 8000
 
@@ -63,9 +64,13 @@ Item {
   }
 
   // Runs the probe script; its output routes to onPortalFound or onNoPortal.
-  function probe() {
+  function probe(force) {
     if (detectProcess.running) return
-    detectProcess.command = ["bash", root.detectScript, root.probeUrl]
+    detectProcess.command = [
+      "bash", root.detectScript, root.probeUrl,
+      force === true || root.suspect ? "suspect" : "confirm",
+      root.fallbackProbeUrl
+    ]
     detectProcess.running = true
   }
 
@@ -79,7 +84,7 @@ Item {
     handledUrl = url
     handledSsid = ssid
     announcedOnline = false
-    log("portal detected: " + url)
+    log("portal detected on " + (ssid || "Wi-Fi"))
 
     if (notify) {
       notifyProcess.command = [
@@ -145,6 +150,7 @@ Item {
       announcedOnline = true
       recheckTimer.stop()
     }
+    if (ssid !== "" && suspect) settleTimer.restart()
   }
 
   Timer {
@@ -184,11 +190,11 @@ Item {
     target: "captive"
 
     // Forces a probe regardless of the current connectivity verdict.
-    function check(): void { root.handledUrl = ""; root.probe() }
+    function check(): void { root.handledUrl = ""; root.probe(true) }
 
     // Reopens the sign-in page; portal sessions expire constantly.
     function open(): void {
-      var url = root.handledUrl !== "" ? root.handledUrl : root.probeUrl
+      var url = root.handledUrl !== "" ? root.handledUrl : "http://neverssl.com/"
       browserProcess.command = ["bash", root.openScript, url]
       browserProcess.running = true
     }
@@ -198,6 +204,21 @@ Item {
       return NetworkConnectivity.toString(root.connectivity)
         + (root.ssid !== "" ? " ssid=" + root.ssid : "")
         + (root.handledUrl !== "" ? " portal=" + root.handledUrl : "")
+    }
+
+    // Structured state for the bundled Wi-Fi widget. Only expose a portal
+    // while it belongs to the current SSID and sign-in is still pending.
+    function statusJson(): string {
+      var pending = root.handledUrl !== ""
+        && root.handledSsid === root.ssid
+        && root.connectivity !== NetworkConnectivity.Full
+      return JSON.stringify({
+        connectivity: NetworkConnectivity.toString(root.connectivity),
+        ssid: root.ssid,
+        url: pending ? root.handledUrl : "",
+        redirected: pending && root.handledUrl !== root.probeUrl
+          && root.handledUrl !== root.fallbackProbeUrl
+      })
     }
   }
 

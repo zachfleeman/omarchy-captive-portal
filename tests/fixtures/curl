@@ -1,0 +1,54 @@
+#!/bin/bash
+set -euo pipefail
+
+output_file=""
+url=""
+while (( $# )); do
+  case "$1" in
+    -o) output_file=$2; shift 2 ;;
+    -m|--max-redirs|-w|-A) shift 2 ;;
+    -sS) shift ;;
+    *) url=$1; shift ;;
+  esac
+done
+
+[[ -n $output_file ]] || exit 2
+code=200
+redirect=""
+body='<TITLE>Success</TITLE>'
+
+case "${MOCK_CASE:-}:$url" in
+  absolute:http://captive.apple.com/hotspot-detect.html)
+    code=302
+    redirect='https://login.example/start?token=abc'
+    ;;
+  relative:http://captive.apple.com/hotspot-detect.html)
+    code=302
+    # curl's redirect_url is absolute even for a relative Location header.
+    redirect='http://captive.apple.com/login'
+    ;;
+  inline:http://captive.apple.com/hotspot-detect.html)
+    body='<html>Hotel sign-in form</html>'
+    ;;
+  fallback-redirect:http://ping.archlinux.org/nm-check.txt)
+    code=302
+    redirect='https://hotel.example/auth'
+    ;;
+  fallback-inline:http://ping.archlinux.org/nm-check.txt)
+    body='<html>Hotel sign-in form</html>'
+    ;;
+  fallback-online:http://ping.archlinux.org/nm-check.txt)
+    body='NetworkManager is online'
+    ;;
+  invalid-redirect:http://captive.apple.com/hotspot-detect.html)
+    code=302
+    redirect='javascript:alert(1)'
+    ;;
+  failure:*) exit 7 ;;
+  *:http://ping.archlinux.org/nm-check.txt)
+    body='NetworkManager is online'
+    ;;
+esac
+
+printf '%s' "$body" > "$output_file"
+printf '%s\n%s' "$code" "$redirect"
